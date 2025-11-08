@@ -1,4 +1,4 @@
-SHL Assessment Recommendation - Vercel Proxy + Local Fallback
+SHL Assessment Recommendation 
 
 What I added
 - `api/proxy.js` - a minimal Vercel-compatible serverless function that forwards requests to the Gemini API using an environment variable `GEMINI_API_KEY`. Includes a simple in-memory per-IP rate limiter for demos.
@@ -70,14 +70,3 @@ Production hardening notes
 - Implement a cost budget monitor that sums estimated tokens (or counts requests) and disables the proxy when a MAX_SPEND or MAX_DAILY_REQUESTS threshold is reached.
 - Replace the local in-memory state with persistent stores and ensure the server is deployed in a multi-instance aware way.
 - Use a deployment provider that supports environment variables and secrets (Vercel, Render, Cloud Run, or similar). If deploying Express to Vercel you can use the "Serverless Functions" approach or deploy the Express server on Render / Heroku / Cloud Run for an always-on process.
-
-If you want, I can:
-- Create a small Redis-backed example using Docker Compose for local testing.
-- Add a small admin endpoint to read current counters and flip the proxy off when spending limit is reached.
-- Create CI steps to run the test-harness automatically in GitHub Actions.
-
-Questions / next steps
-- I can wire a simple Node Express server instead of a serverless function if you prefer an always-on service (good for more control).
-- I can add a small auth token mechanism so the browser must include a short-lived token to call the proxy.
-- I can replace the in-memory rate limiter with an example Redis-backed limiter.
-
