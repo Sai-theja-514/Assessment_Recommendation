@@ -241,7 +241,21 @@ You MUST adhere to the following rules:
 `;
 
         // --- Event Listener ---
-        findButton.addEventListener('click', handleFindAssessments);
+        // Defensive: ensure the button exists before attaching handlers
+        if (findButton) {
+            findButton.addEventListener('click', handleFindAssessments);
+        }
+
+        // Allow quick submit from the textarea: Ctrl/Cmd+Enter will trigger the search
+        if (queryInput) {
+            queryInput.addEventListener('keydown', (e) => {
+                const isSubmit = (e.key === 'Enter' && (e.ctrlKey || e.metaKey));
+                if (isSubmit) {
+                    e.preventDefault();
+                    handleFindAssessments();
+                }
+            });
+        }
 
         // --- Functions ---
         async function handleFindAssessments() {
@@ -448,24 +462,22 @@ Please return the JSON array of recommendations, adhering to all system prompt r
 
                 return `
                     <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden transition-all duration-300 hover:shadow-lg">
-                        <div class="p-5 sm:p-6">
-                            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
-                                <h3 class="text-xl font-semibold text-blue-700">
-                                    <a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class="hover:underline">
-                                        ${escapeHTML(name)}
-                                    </a>
-                                </h3>
-                                <div class="flex flex-wrap gap-2">
-                                    ${testTypePills}
+                        <a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class="block" title="Open ${escapeHTML(name)}">
+                            <div class="p-5 sm:p-6">
+                                <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                                    <h3 class="text-xl font-semibold text-blue-700">${escapeHTML(name)}</h3>
+                                    <div class="flex flex-wrap gap-2">
+                                        ${testTypePills}
+                                    </div>
+                                </div>
+
+                                <p class="text-gray-600 mb-5">${escapeHTML(description)}</p>
+
+                                <div class="flex flex-wrap items-center gap-4 sm:gap-6 text-gray-600">
+                                    ${infoBadgesHTML}
                                 </div>
                             </div>
-                            
-                            <p class="text-gray-600 mb-5">${escapeHTML(description)}</p>
-                            
-                            <div class="flex flex-wrap items-center gap-4 sm:gap-6 text-gray-600">
-                                ${infoBadgesHTML}
-                            </div>
-                        </div>
+                        </a>
                     </div>
                 `;
             }).join('');
