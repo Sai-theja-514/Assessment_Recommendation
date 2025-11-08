@@ -15,9 +15,23 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install deps
+      - name: Install dependencies (root + server)
         run: |
-          npm ci
+          # Install at repo root if a package.json exists
+          if [ -f package.json ]; then
+            echo "Found package.json at repo root — running npm ci"
+            npm ci
+          else
+            echo "No package.json at repo root, skipping npm ci here."
+          fi
+
+          # If there's a server folder with its own Node app, install there as well
+          if [ -f server/package.json ]; then
+            echo "Found server/package.json — running npm ci in server/"
+            npm ci --prefix server
+          else
+            echo "No server/package.json found, skipping server install."
+          fi
 
       - name: Vercel Deploy
         uses: amondnet/vercel-action@v20
