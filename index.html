@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHL Assessment Recommendation Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for a cleaner look */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+        textarea::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 10px;
+        }
+        textarea::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .animate-spin-fast {
+            animation: spin 0.5s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white rounded-2xl shadow-2xl p-6 sm:p-10 max-w-4xl w-full">
+        
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-800">
+                GenAI Assessment Recommendation
+            </h1>
+            <p class="text-lg text-gray-600 mt-2">
+                Enter a job description or query to find the most relevant SHL assessments.
+            </p>
+        </header>
+
+        <!-- Input Section -->
+        <main>
+            <div class="mb-4">
+                <label for="jd-query" class="block text-sm font-medium text-gray-700 mb-2">
+                    Job Description or Natural Language Query:
+                </label>
+                <textarea id="jd-query" rows="10" class="w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-y" placeholder="e.g., 'I am hiring for a senior Java developer who can also collaborate effectively with business teams and stakeholders.'"></textarea>
+            </div>
+
+            <button id="find-assessments-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-200 ease-in-out flex items-center justify-center space-x-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                </svg>
+                <span>Find Assessments</span>
+            </button>
+        </main>
+
+        <!-- Results Section -->
+        <section id="results-section" class="mt-10">
+            <!-- This is where results will be dynamically injected -->
+        </section>
+    </div>
+
+    <script>
+        // --- Mock Product Catalog (Simulating the "Retrieved" data in RAG) ---
+        // This is a mock database representing the crawled "individual test solutions"
+        // This data is taken from the PDF examples and reasonable assumptions.
+        const mockAssessmentCatalog = [
+            {
+                "name": "Java (New)",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/java-new/",
+                "adaptive_support": "No",
+                "description": "Multi-choice test that measures the knowledge of Java programming, including core concepts, data structures, and OOP principles. For advanced roles, covers frameworks and libraries.",
+                "duration": 20,
+                "remote_support": "Yes",
+                "test_type": ["Knowledge & Skills"]
+            },
+            {
+                "name": "Python (New)",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/python-new/",
+                "adaptive_support": "No",
+                "description": "Multi-choice test that measures the knowledge of Python programming, databases, modules and library. For...",
+                "duration": 15,
+                "remote_support": "Yes",
+                "test_type": ["Knowledge & Skills"]
+            },
+            {
+                "name": "SQL (Intermediate)",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/sql-intermediate/",
+                "adaptive_support": "No",
+                "description": "Assesses the ability to write complex SQL queries, including joins, subqueries, and database manipulation.",
+                "duration": 25,
+                "remote_support": "Yes",
+                "test_type": ["Knowledge & Skills"]
+            },
+            {
+                "name": "JavaScript (Frontend)",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/javascript-frontend/",
+                "adaptive_support": "Yes",
+                "description": "Adaptive test for modern JavaScript, including ES6+ concepts, asynchronous programming, and DOM manipulation. Can be tailored for frameworks like React or Angular.",
+                "duration": 30,
+                "remote_support": "Yes",
+                "test_type": ["Knowledge & Skills"]
+            },
+            {
+                "name": "Cloud Practitioner (Foundational)",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/cloud-practitioner/",
+                "adaptive_support": "No",
+                "description": "Measures fundamental knowledge of cloud concepts and services, typically covering AWS, Azure, and GCP basics.",
+                "duration": 20,
+                "remote_support": "Yes",
+                "test_type": ["Knowledge & Skills"]
+            },
+            {
+                "name": "Technology Professional 8.8 Job Focused Assessment",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/technology-professional-8-8-job-focused-assessment/",
+                "adaptive_support": "No",
+                "description": "The Technology Job Focused Assessment assesses key behavioral attributes required for success in fast-paced roles.",
+                "duration": 16,
+                "remote_support": "Yes",
+                "test_type": ["Competencies", "Personality & Behavior"]
+            },
+            {
+                "name": "Teamwork & Collaboration (SJT)",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/teamwork-collaboration-sjt/",
+                "adaptive_support": "No",
+                "description": "A Situational Judgement Test (SJT) that assesses how an individual collaborates in a team environment, handles conflict, and communicates with peers.",
+                "duration": 20,
+                "remote_support": "Yes",
+                "test_type": ["Biodata & Situational Judgement", "Personality & Behavior"]
+            },
+            {
+                "name": "Leadership Potential",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/leadership-potential/",
+                "adaptive_support": "Yes",
+                "description": "Assesses key behavioral attributes and competencies required for leadership roles, including strategic thinking, decision-making, and motivating others.",
+                "duration": 35,
+                "remote_support": "Yes",
+                "test_type": ["Personality & Behavior", "Competencies"]
+            },
+            {
+                "name": "Cognitive Ability (General)",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/cognitive-ability-general/",
+                "adaptive_support": "Yes",
+                "description": "Measures verbal, numerical, and abstract reasoning. A strong and scientifically validated predictor of job success across many roles. Good for analyst roles.",
+                "duration": 30,
+                "remote_support": "Yes",
+                "test_type": ["Ability & Aptitude"]
+            },
+            {
+                "name": "Verbal Reasoning",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/verbal-reasoning/",
+                "adaptive_support": "Yes",
+                "description": "Measures the ability to understand, evaluate, and draw logical conclusions from written information and text.",
+                "duration": 20,
+                "remote_support": "Yes",
+                "test_type": ["Ability & Aptitude"]
+            },
+            {
+                "name": "Numerical Reasoning",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/numerical-reasoning/",
+                "adaptive_support": "Yes",
+                "description": "Assesses the ability to work with and interpret numerical data, such as graphs, charts, and tables, to make sound business decisions.",
+                "duration": 25,
+                "remote_support": "Yes",
+                "test_type": ["Ability & Aptitude"]
+            },
+            {
+                "name": "Customer Service Skills (Simulation)",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/customer-service-simulation/",
+                "adaptive_support": "No",
+                "description": "Simulates real-world customer interactions to measure problem-solving, empathy, and communication skills in a customer-facing role.",
+                "duration": 30,
+                "remote_support": "Yes",
+                "test_type": ["Simulations", "Competencies"]
+            },
+            {
+                "name": "Problem Solving",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/problem-solving/",
+                "adaptive_support": "No",
+                "description": "Identifies individuals who can effectively analyze information, identify key issues, and solve complex problems in a structured manner.",
+                "duration": 20,
+                "remote_support": "Yes",
+                "test_type": ["Ability & Aptitude", "Competencies"]
+            },
+            {
+                "name": "Attention to Detail",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/attention-to-detail/",
+                "adaptive_support": "No",
+                "description": "An interactive assessment measuring an individual's ability to maintain focus, accuracy, and spot errors in data or text.",
+                "duration": 15,
+                "remote_support": "Yes",
+                "test_type": ["Simulations"]
+            },
+            {
+                "name": "Sales Personality Questionnaire (OPQ)",
+                "url": "https://www.shl.com/solutions/products/product-catalog/view/sales-personality-opq/",
+                "adaptive_support": "No",
+                "description": "Based on the Occupational Personality Questionnaire (OPQ), this identifies personality traits, motivations, and behaviors linked to success in sales roles.",
+                "duration": 30,
+                "remote_support": "Yes",
+                "test_type": ["Personality & Behavior"]
+            }
+        ];
+
+        // --- DOM Elements ---
+        const queryInput = document.getElementById('jd-query');
+        const findButton = document.getElementById('find-assessments-btn');
+        const resultsSection = document.getElementById('results-section');
+
+    // --- API & System Prompt Configuration ---
+    // NOTE: For security, do NOT put a production API key in this client-side file.
+    // We recommend using the server-side proxy at `/api/proxy` (scaffolded in this repo).
+    const API_KEY = ""; // Intentionally left blank. DO NOT set a production key here.
+    const SERVER_PROXY = '/api/proxy';
+
+        // This system prompt instructs the AI on how to perform its "RAG" task
+        // This is the core logic that fulfills the assignment requirements
+        const systemPrompt = `
+You are an expert HR recruitment assistant for SHL. Your task is to recommend the most relevant assessments from a provided JSON catalog based on a user's job query.
+
+You MUST adhere to the following rules:
+1.  Return ONLY a valid JSON array of the recommended assessment objects, matching the format in the provided catalog. Do NOT include any explanatory text, markdown formatting (\`\`\`json), or any other text outside of the JSON array.
+2.  The response MUST be a JSON array, starting with '[' and ending with ']'.
+3.  Recommend a minimum of 5 and a maximum of 10 assessments, sorted by relevance.
+4.  If the user's query spans multiple domains (e.g., a technical skill like 'Java' and a behavioral skill like 'collaboration'), you MUST return a balanced set of assessments covering all domains. This is a critical requirement.
+5.  Use the 'test_type' field in the catalog to ensure this balance.
+    - 'Knowledge & Skills': For technical skills (Java, Python, SQL, etc.)
+    - 'Personality & Behavior': For soft skills (teamwork, leadership, collaboration)
+    - 'Ability & Aptitude': For cognitive skills (problem-solving, reasoning, analyst)
+    - 'Biodata & Situational Judgement': For situational skills.
+6.  Base your recommendations *solely* on the provided catalog. Do not invent assessments.
+7.  Match the user's query keywords and concepts (e.g., 'Java', 'Python', 'collaboration', 'leadership', 'cognitive', 'analyst', 'mid-level', 'JavaScript') to the assessment 'name' and 'description' to determine relevance.
+8.  Return all fields for each assessment: "name", "url", "adaptive_support", "description", "duration", "remote_support", "test_type".
+`;
+
+        // --- Event Listener ---
+        findButton.addEventListener('click', handleFindAssessments);
+
+        // --- Functions ---
+        async function handleFindAssessments() {
+            const userQuery = queryInput.value.trim();
+            if (!userQuery) {
+                renderError("Please enter a query or job description.");
+                return;
+            }
+
+            renderLoading();
+            
+            // Build the RAG prompt (client-side) and send to server proxy for security.
+            const fullPrompt = `
+Here is the product catalog:
+${JSON.stringify(mockAssessmentCatalog)}
+
+Here is the user's query:
+"${userQuery}"
+
+Please return the JSON array of recommendations, adhering to all system prompt rules.
+`;
+
+            const payload = {
+                contents: [{ parts: [{ text: fullPrompt }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                }
+            };
+
+            try {
+                // Try the server proxy first. The proxy should add the API key and forward safely.
+                const proxyResponse = await fetchWithBackoff(SERVER_PROXY, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (proxyResponse.ok) {
+                    const json = await proxyResponse.json();
+                    if (json.recommendations) {
+                        renderResults(json.recommendations, userQuery);
+                        return;
+                    }
+                    // If proxy returned an alternate model raw result, try to parse
+                    if (json.candidates?.[0]?.content?.parts?.[0]?.text) {
+                        try {
+                            const parsed = JSON.parse(json.candidates[0].content.parts[0].text);
+                            renderResults(parsed, userQuery);
+                            return;
+                        } catch (e) {
+                            console.warn('Proxy returned non-JSON content, falling back to local.', e);
+                        }
+                    }
+                } else {
+                    // Non-OK: fallthrough to safe fallback (do not expose raw error to user)
+                    console.warn('Proxy request failed', proxyResponse.status, await proxyResponse.text());
+                }
+
+                // If proxy failed or returned unexpected output, use a local fallback to avoid calling external APIs.
+                const fallback = localRecommend(userQuery, mockAssessmentCatalog);
+                renderFallbackNotice();
+                renderResults(fallback, userQuery);
+
+            } catch (error) {
+                console.error('Error contacting proxy or rendering results:', error);
+                // On network error, fallback locally
+                const fallback = localRecommend(userQuery, mockAssessmentCatalog);
+                renderFallbackNotice();
+                renderResults(fallback, userQuery);
+            }
+        }
+
+        // --- Local fallback recommender ---
+        // Simple keyword scoring and selection to return 5-10 balanced recommendations
+        function localRecommend(query, catalog) {
+            const q = (query || '').toLowerCase();
+            const keywords = q.split(/[^a-z0-9]+/).filter(Boolean);
+
+            // Score each assessment by keyword matches in name and description
+            const scored = catalog.map(item => {
+                const hay = (item.name + ' ' + (item.description || '')).toLowerCase();
+                let score = 0;
+                for (const k of keywords) {
+                    if (hay.includes(k)) score += 3;
+                }
+                // small boost for shorter duration (preference)
+                score += (item.duration ? Math.max(0, 30 - item.duration) * 0.01 : 0);
+                return { item, score };
+            });
+
+            scored.sort((a, b) => b.score - a.score);
+
+            // Pick top N by score, enforce min 5, max 10
+            const top = scored.slice(0, 10).map(s => s.item);
+            // If not enough matches, fill with higher-level variety
+            if (top.length < 5) {
+                const extras = catalog.filter(c => !top.includes(c)).slice(0, 5 - top.length);
+                top.push(...extras);
+            }
+
+            // Ensure balanced coverage if query seems multi-domain: look for tech vs behavior keywords
+            const techKeywords = ['java','python','sql','javascript','react','cloud','aws','azure','git','docker'];
+            const behaviorKeywords = ['lead','collaborat','team','communication','manager','stakeholder','customer','sales','service'];
+            const hasTech = keywords.some(k => techKeywords.some(t => k.includes(t)));
+            const hasBehavior = keywords.some(k => behaviorKeywords.some(t => k.includes(t)));
+
+            if (hasTech && hasBehavior) {
+                // ensure at least 2 items from each test_type group
+                const techItems = catalog.filter(c => (c.test_type || []).some(t => t.toLowerCase().includes('knowledge')));
+                const behaviorItems = catalog.filter(c => (c.test_type || []).some(t => t.toLowerCase().includes('personality') || t.toLowerCase().includes('situational')));
+                const chosen = [];
+                chosen.push(...techItems.slice(0,2));
+                chosen.push(...behaviorItems.slice(0,2));
+                // fill remaining from top
+                for (const c of top) if (!chosen.includes(c) && chosen.length < 7) chosen.push(c);
+                return chosen.slice(0, Math.max(5, Math.min(10, chosen.length)));
+            }
+
+            return top.slice(0, Math.max(5, Math.min(10, top.length)));
+        }
+
+        function renderFallbackNotice() {
+            const note = document.createElement('div');
+            note.className = 'bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg mb-4';
+            note.innerHTML = `<strong class="font-bold text-yellow-800">Using local fallback</strong> — the server proxy is unavailable or not configured. Results are generated from a local catalogue for demo purposes.`;
+            // Insert at top of resultsSection
+            resultsSection.prepend(note);
+            setTimeout(() => note.remove(), 8000);
+        }
+
+        // --- Rendering Functions ---
+
+        function renderLoading() {
+            resultsSection.innerHTML = `
+                <div class="flex flex-col items-center justify-center text-gray-600 p-8">
+                    <svg class="animate-spin-fast h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="text-lg font-medium">Analyzing your query...</p>
+                    <p class="text-sm">Finding the best assessments for your role.</p>
+                </div>
+            `;
+        }
+
+        function renderError(message) {
+            resultsSection.innerHTML = `
+                <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg" role="alert">
+                    <h3 class="font-bold text-red-800">Error</h3>
+                    <p class="text-red-700">${message}</p>
+                </div>
+            `;
+        }
+
+        function renderResults(recommendations, userQuery) {
+            if (!recommendations || recommendations.length === 0) {
+                renderError("No relevant assessments found for your query.");
+                return;
+            }
+
+            // Create the title
+            let titleHTML = `
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Recommended Assessments</h2>
+                <p class="text-gray-600 mb-6">Based on your query: "<em>${escapeHTML(userQuery.substring(0, 100))}${userQuery.length > 100 ? '...' : ''}</em>"</p>
+                <div class="space-y-6">
+            `;
+
+            // Create the list of assessment cards
+            let cardsHTML = recommendations.map(assessment => {
+                // Check for missing data
+                const name = assessment.name || "Unnamed Assessment";
+                const url = assessment.url || "#";
+                const description = assessment.description || "No description available.";
+                const test_type = assessment.test_type || ["Uncategorized"];
+                const duration = assessment.duration || "?";
+                const remote = assessment.remote_support || "N/A";
+                const adaptive = assessment.adaptive_support || "N/A";
+
+                // Create pill badges for test_type
+                const testTypePills = test_type.map(type => {
+                    let colorClass = 'bg-gray-200 text-gray-800'; // Default
+                    if (type.includes('Knowledge')) colorClass = 'bg-blue-100 text-blue-800';
+                    else if (type.includes('Personality')) colorClass = 'bg-green-100 text-green-800';
+                    else if (type.includes('Ability')) colorClass = 'bg-purple-100 text-purple-800';
+                    else if (type.includes('Simulation')) colorClass = 'bg-yellow-100 text-yellow-800';
+                    else if (type.includes('Situation')) colorClass = 'bg-indigo-100 text-indigo-800';
+                    
+                    return `<span class="inline-block px-3 py-1 text-xs font-medium rounded-full ${colorClass}">${escapeHTML(type)}</span>`;
+                }).join(' ');
+
+                // Create info badges for duration, remote, adaptive
+                const infoBadges = [
+                    { icon: '&#x1F551;', text: `${duration} min`, label: 'Duration' },
+                    { icon: remote === 'Yes' ? '&#x1F4BB;' : '&#x1F3E2;', text: `Remote: ${remote}`, label: 'Remote Support' },
+                    { icon: adaptive === 'Yes' ? '&#x1F4C8;' : '&#x1F4C9;', text: `Adaptive: ${adaptive}`, label: 'Adaptive Support' }
+                ];
+
+                const infoBadgesHTML = infoBadges.map(badge => `
+                    <div class="flex items-center" title="${badge.label}">
+                        <span class="text-lg mr-1.5" aria-hidden="true">${badge.icon}</span>
+                        <span class="text-sm text-gray-700">${escapeHTML(badge.text)}</span>
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden transition-all duration-300 hover:shadow-lg">
+                        <div class="p-5 sm:p-6">
+                            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                                <h3 class="text-xl font-semibold text-blue-700">
+                                    <a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class="hover:underline">
+                                        ${escapeHTML(name)}
+                                    </a>
+                                </h3>
+                                <div class="flex flex-wrap gap-2">
+                                    ${testTypePills}
+                                </div>
+                            </div>
+                            
+                            <p class="text-gray-600 mb-5">${escapeHTML(description)}</p>
+                            
+                            <div class="flex flex-wrap items-center gap-4 sm:gap-6 text-gray-600">
+                                ${infoBadgesHTML}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            resultsSection.innerHTML = titleHTML + cardsHTML + '</div>';
+        }
+
+        // --- Utility Functions ---
+
+        function escapeHTML(str) {
+            if (typeof str !== 'string') return '';
+            return str.replace(/[&<>"']/g, function(match) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[match];
+            });
+        }
+        
+        // Exponential backoff for API retries
+        async function fetchWithBackoff(url, options, maxRetries = 3, baseDelay = 1000) {
+            let attempt = 0;
+            while (attempt < maxRetries) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status !== 429 && response.status < 500) {
+                        return response; // Successful or non-retriable error
+                    }
+                    // If 429 or 5xx, wait and retry
+                    console.warn(`Attempt ${attempt + 1}: Retriable error ${response.status}. Retrying in ${baseDelay}ms...`);
+                } catch (error) {
+                    console.warn(`Attempt ${attempt + 1}: Network error. Retrying in ${baseDelay}ms...`, error);
+                }
+                await new Promise(resolve => setTimeout(resolve, baseDelay));
+                baseDelay *= 2; // Exponential backoff
+                attempt++;
+            }
+            // Last attempt, re-throw error if it fails
+            return fetch(url, options);
+        }
+
+        // Pre-populate with a sample query
+        document.addEventListener('DOMContentLoaded', () => {
+            queryInput.value = "I am hiring for Java developers who can also collaborate effectively with my business teams.";
+        });
+
+    </script>
+</body>
+</html>

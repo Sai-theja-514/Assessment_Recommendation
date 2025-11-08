@@ -1,0 +1,21 @@
+{
+  "name": "shl-proxy-server",
+  "version": "1.0.0",
+  "description": "Express proxy for Gemini API with rate limiting and auth (demo).",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test-harness.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "dotenv": "^16.0.3",
+    "ioredis": "^5.3.2",
+    "body-parser": "^1.20.2",
+    "node-fetch": "^3.3.2",
+    "undici": "^5.3.0"
+  }
+}
